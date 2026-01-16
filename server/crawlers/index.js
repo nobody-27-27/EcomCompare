@@ -1,13 +1,34 @@
 const CheerioCrawler = require('./cheerioCrawler');
-const PuppeteerCrawler = require('./puppeteerCrawler');
+
+// Try to load Puppeteer, but it's optional
+let PuppeteerCrawler = null;
+let puppeteerAvailable = false;
+
+try {
+  PuppeteerCrawler = require('./puppeteerCrawler');
+  puppeteerAvailable = true;
+  console.log('Puppeteer crawler available');
+} catch (error) {
+  console.log('Puppeteer not available - will use Cheerio for all crawls');
+  console.log('To enable Puppeteer, install Chrome/Chromium and puppeteer package');
+}
 
 class CrawlerManager {
   constructor() {
     this.activeJobs = new Map();
   }
 
+  isPuppeteerAvailable() {
+    return puppeteerAvailable;
+  }
+
   // Detect if a website needs JavaScript rendering
   async detectCrawlerType(url) {
+    // If Puppeteer is not available, always use Cheerio
+    if (!puppeteerAvailable) {
+      return 'cheerio';
+    }
+
     try {
       // First try with a simple fetch
       const controller = new AbortController();
@@ -70,8 +91,8 @@ class CrawlerManager {
       return 'cheerio';
     } catch (error) {
       console.error('Error detecting crawler type:', error.message);
-      // Default to Puppeteer for problematic sites
-      return 'puppeteer';
+      // Default to Cheerio if detection fails
+      return 'cheerio';
     }
   }
 
@@ -82,7 +103,16 @@ class CrawlerManager {
       crawlerType = await this.detectCrawlerType(url);
     }
 
-    const CrawlerClass = crawlerType === 'puppeteer' ? PuppeteerCrawler : CheerioCrawler;
+    // Force Cheerio if Puppeteer requested but not available
+    if (crawlerType === 'puppeteer' && !puppeteerAvailable) {
+      console.log('Puppeteer not available, falling back to Cheerio');
+      crawlerType = 'cheerio';
+    }
+
+    const CrawlerClass = crawlerType === 'puppeteer' && puppeteerAvailable
+      ? PuppeteerCrawler
+      : CheerioCrawler;
+
     return {
       crawler: new CrawlerClass(url, options),
       type: crawlerType
@@ -139,5 +169,6 @@ const crawlerManager = new CrawlerManager();
 module.exports = {
   CheerioCrawler,
   PuppeteerCrawler,
-  crawlerManager
+  crawlerManager,
+  puppeteerAvailable
 };

@@ -18,9 +18,11 @@
     "express": "^4.18.2",
     "fastest-levenshtein": "^1.0.16",
     "json2csv": "^6.0.0-alpha.2",
-    "puppeteer": "^22.0.0",
     "socket.io": "^4.7.4",
     "uuid": "^9.0.1"
+  },
+  "optionalDependencies": {
+    "puppeteer": "^22.0.0"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
