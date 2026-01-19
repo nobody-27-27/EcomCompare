@@ -36,8 +36,8 @@ E-commerce Product Comparison Crawler - A Node.js application to crawl e-commerc
 ## Tech Stack
 
 - **Backend**: Node.js, Express
-- **Database**: SQLite (via better-sqlite3)
-- **Crawling**: Puppeteer, Cheerio
+- **Database**: SQLite (via sql.js - pure JavaScript, no native dependencies)
+- **Crawling**: Puppeteer (optional), Cheerio
 - **Frontend**: React
 - **Real-time Updates**: Socket.IO
 

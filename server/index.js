@@ -4,17 +4,8 @@ const path = require('path');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 
-// Import routes
-const websitesRouter = require('./routes/websites');
-const productsRouter = require('./routes/products');
-const matchingRouter = require('./routes/matching');
-const exportRouter = require('./routes/export');
-
-// Import database to initialize
-require('./database/init');
-
-// Import crawl job manager
-const { CrawlJob } = require('./database/models');
+// Import database initialization
+const { initDatabase } = require('./database/init');
 
 const app = express();
 const httpServer = createServer(app);
@@ -32,60 +23,15 @@ app.set('io', io);
 app.use(cors());
 app.use(express.json());
 
-// API Routes
-app.use('/api/websites', websitesRouter);
-app.use('/api/products', productsRouter);
-app.use('/api/matching', matchingRouter);
-app.use('/api/export', exportRouter);
-
-// Health check
+// Health check (available before db init)
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// Get active crawl jobs
-app.get('/api/jobs', (req, res) => {
-  try {
-    const jobs = CrawlJob.findAll();
-    res.json(jobs);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get running jobs
-app.get('/api/jobs/running', (req, res) => {
-  try {
-    const jobs = CrawlJob.findRunning();
-    res.json(jobs);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
 });
 
 // Serve static files from React build in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../client/build')));
-
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/build/index.html'));
-  });
 }
-
-// Socket.IO connection handling
-io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id);
-
-  // Send current running jobs on connect
-  const runningJobs = CrawlJob.findRunning();
-  if (runningJobs.length > 0) {
-    socket.emit('running-jobs', runningJobs);
-  }
-
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
-  });
-});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -96,10 +42,77 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
-const PORT = process.env.PORT || 5000;
-httpServer.listen(PORT, () => {
-  console.log(`
+// Initialize database and start server
+async function startServer() {
+  try {
+    // Initialize database first
+    console.log('Initializing database...');
+    await initDatabase();
+    console.log('Database initialized successfully');
+
+    // Now load routes and models (after db is ready)
+    const websitesRouter = require('./routes/websites');
+    const productsRouter = require('./routes/products');
+    const matchingRouter = require('./routes/matching');
+    const exportRouter = require('./routes/export');
+    const { CrawlJob } = require('./database/models');
+
+    // API Routes
+    app.use('/api/websites', websitesRouter);
+    app.use('/api/products', productsRouter);
+    app.use('/api/matching', matchingRouter);
+    app.use('/api/export', exportRouter);
+
+    // Get active crawl jobs
+    app.get('/api/jobs', (req, res) => {
+      try {
+        const jobs = CrawlJob.findAll();
+        res.json(jobs);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Get running jobs
+    app.get('/api/jobs/running', (req, res) => {
+      try {
+        const jobs = CrawlJob.findRunning();
+        res.json(jobs);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Catch-all for production SPA routing
+    if (process.env.NODE_ENV === 'production') {
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(__dirname, '../client/build/index.html'));
+      });
+    }
+
+    // Socket.IO connection handling
+    io.on('connection', (socket) => {
+      console.log('Client connected:', socket.id);
+
+      // Send current running jobs on connect
+      try {
+        const runningJobs = CrawlJob.findRunning();
+        if (runningJobs.length > 0) {
+          socket.emit('running-jobs', runningJobs);
+        }
+      } catch (error) {
+        console.error('Error fetching running jobs:', error.message);
+      }
+
+      socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id);
+      });
+    });
+
+    // Start server
+    const PORT = process.env.PORT || 5000;
+    httpServer.listen(PORT, () => {
+      console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║
 ║   EcomCompare Server                                      ║
@@ -109,7 +122,14 @@ httpServer.listen(PORT, () => {
 ║   API endpoints:     http://localhost:${PORT}/api           ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
-  `);
-});
+      `);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+startServer();
 
 module.exports = { app, io };
