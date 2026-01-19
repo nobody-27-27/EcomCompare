@@ -239,19 +239,49 @@ router.post('/:id/crawl/cancel', (req, res) => {
     }
 
     const cancelled = crawlerManager.cancelCrawl(website.id);
+
+    // Always update the database status, even if no active crawl found
+    Website.update(website.id, { status: 'cancelled' });
+
+    // Update latest job
+    const latestJob = CrawlJob.findLatest(website.id);
+    if (latestJob && latestJob.status === 'running') {
+      CrawlJob.fail(latestJob.id, 'Cancelled by user');
+    }
+
     if (cancelled) {
-      Website.update(website.id, { status: 'cancelled' });
-
-      // Update latest job
-      const latestJob = CrawlJob.findLatest(website.id);
-      if (latestJob && latestJob.status === 'running') {
-        CrawlJob.fail(latestJob.id, 'Cancelled by user');
-      }
-
       res.json({ message: 'Crawl cancelled' });
     } else {
-      res.status(404).json({ error: 'No active crawl found for this website' });
+      res.json({ message: 'Crawl status reset (no active crawl was running)' });
     }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Reset website status (fix stuck jobs)
+router.post('/:id/reset-status', (req, res) => {
+  try {
+    const website = Website.findById(req.params.id);
+    if (!website) {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+
+    // Cancel any active crawl
+    crawlerManager.cancelCrawl(website.id);
+
+    // Reset website status
+    Website.update(website.id, { status: 'pending' });
+
+    // Mark any running jobs as failed
+    const jobs = CrawlJob.findByWebsite(website.id);
+    jobs.forEach(job => {
+      if (job.status === 'running') {
+        CrawlJob.fail(job.id, 'Reset by user');
+      }
+    });
+
+    res.json({ message: 'Website status reset successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

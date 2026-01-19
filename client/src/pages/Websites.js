@@ -72,11 +72,25 @@ function Websites() {
 
   const handleCancelCrawl = async (id) => {
     try {
-      await websitesApi.cancelCrawl(id);
+      const result = await websitesApi.cancelCrawl(id);
+      clearProgress(id);
+      loadWebsites();
+      if (result.message) {
+        // Show message if status was just reset
+        console.log(result.message);
+      }
+    } catch (error) {
+      alert('Error canceling crawl: ' + error.message);
+    }
+  };
+
+  const handleResetStatus = async (id) => {
+    try {
+      await websitesApi.resetStatus(id);
       clearProgress(id);
       loadWebsites();
     } catch (error) {
-      alert('Error canceling crawl: ' + error.message);
+      alert('Error resetting status: ' + error.message);
     }
   };
 
@@ -192,12 +206,21 @@ function Websites() {
                       <td>
                         <div className="actions">
                           {isRunning ? (
-                            <button
-                              className="btn btn-sm btn-danger"
-                              onClick={() => handleCancelCrawl(website.id)}
-                            >
-                              Cancel
-                            </button>
+                            <>
+                              <button
+                                className="btn btn-sm btn-danger"
+                                onClick={() => handleCancelCrawl(website.id)}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                className="btn btn-sm btn-outline"
+                                onClick={() => handleResetStatus(website.id)}
+                                title="Reset stuck status"
+                              >
+                                Reset
+                              </button>
+                            </>
                           ) : (
                             <button
                               className="btn btn-sm btn-primary"

@@ -123,7 +123,81 @@ class CheerioCrawler extends BaseCrawler {
     return this.products;
   }
 
+  // Extract products from JSON-LD structured data
+  extractProductsFromJsonLd($) {
+    const products = [];
+
+    $('script[type="application/ld+json"]').each((i, el) => {
+      try {
+        const json = JSON.parse($(el).html());
+        const items = Array.isArray(json) ? json : [json];
+
+        for (const item of items) {
+          // Handle Product type
+          if (item['@type'] === 'Product') {
+            const p = this.parseJsonLdProduct(item);
+            if (p) products.push(p);
+          }
+          // Handle ItemList with products
+          if (item['@type'] === 'ItemList' && item.itemListElement) {
+            for (const listItem of item.itemListElement) {
+              if (listItem.item && listItem.item['@type'] === 'Product') {
+                const p = this.parseJsonLdProduct(listItem.item);
+                if (p) products.push(p);
+              } else if (listItem['@type'] === 'Product') {
+                const p = this.parseJsonLdProduct(listItem);
+                if (p) products.push(p);
+              }
+            }
+          }
+          // Handle @graph with products
+          if (item['@graph']) {
+            for (const graphItem of item['@graph']) {
+              if (graphItem['@type'] === 'Product') {
+                const p = this.parseJsonLdProduct(graphItem);
+                if (p) products.push(p);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // Invalid JSON, skip
+      }
+    });
+
+    return products.filter(p => p && p.name);
+  }
+
+  parseJsonLdProduct(item) {
+    if (!item) return null;
+
+    let price = null;
+    if (item.offers) {
+      const offers = Array.isArray(item.offers) ? item.offers[0] : item.offers;
+      price = offers.price || offers.lowPrice;
+      if (price) price = parseFloat(price);
+    }
+
+    let imageUrl = item.image;
+    if (Array.isArray(imageUrl)) imageUrl = imageUrl[0];
+    if (typeof imageUrl === 'object') imageUrl = imageUrl.url || imageUrl['@id'];
+
+    return {
+      name: item.name,
+      price: price,
+      sku: item.sku || item.productID || item.mpn,
+      image_url: imageUrl ? this.normalizeUrl(imageUrl) : null,
+      product_url: item.url ? this.normalizeUrl(item.url) : null
+    };
+  }
+
   extractProductsFromPage($, pageUrl) {
+    // First try JSON-LD structured data (most reliable)
+    const jsonLdProducts = this.extractProductsFromJsonLd($);
+    if (jsonLdProducts.length > 0) {
+      return jsonLdProducts;
+    }
+
     const products = [];
     const selectors = BaseCrawler.PRODUCT_SELECTORS[this.platform || 'generic'];
 
@@ -288,7 +362,19 @@ class CheerioCrawler extends BaseCrawler {
       /\/collections?\//i,
       /\/shop\//i,
       /\/products?\//i,
-      /\/catalog\//i
+      /\/catalog\//i,
+      // Turkish patterns
+      /\/kategori\//i,
+      /\/urun\//i,
+      /\/urunler\//i,
+      /\/magaza\//i,
+      /\/grup\//i,
+      // Common listing patterns
+      /\/c\//i,
+      /\/k\//i,
+      /\/g\//i,
+      /\?.*kategori/i,
+      /\?.*category/i
     ];
 
     $('a').each((i, el) => {
@@ -306,7 +392,7 @@ class CheerioCrawler extends BaseCrawler {
       }
     });
 
-    return [...new Set(links)].slice(0, 20); // Limit category links
+    return [...new Set(links)].slice(0, 30); // Limit category links
   }
 
   deduplicateProducts(products) {

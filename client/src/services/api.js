@@ -71,6 +71,13 @@ export const websitesApi = {
   getJobs: async (id) => {
     const response = await fetch(`${API_BASE}/websites/${id}/jobs`);
     return handleResponse(response);
+  },
+
+  resetStatus: async (id) => {
+    const response = await fetch(`${API_BASE}/websites/${id}/reset-status`, {
+      method: 'POST'
+    });
+    return handleResponse(response);
   }
 };
 

@@ -27,7 +27,18 @@ class BaseCrawler {
         '[data-product]',
         '.item',
         '.listing-item',
-        'article.product'
+        'article.product',
+        // Additional Turkish/generic selectors
+        '.urun',
+        '.urunler',
+        '.productItem',
+        '.product-box',
+        '.product-list-item',
+        '.col-product',
+        '.product-wrapper',
+        '[class*="product"]',
+        '.card',
+        '.grid-item'
       ],
       name: [
         '.product-name',
@@ -38,7 +49,15 @@ class BaseCrawler {
         '.item-title',
         'a.product-link',
         'h2 a',
-        'h3 a'
+        'h3 a',
+        // Additional
+        '.urun-adi',
+        '.product-name a',
+        '.productName',
+        '.title a',
+        '.name',
+        '[class*="title"]',
+        '[class*="name"]'
       ],
       price: [
         '.price',
@@ -47,21 +66,36 @@ class BaseCrawler {
         '.current-price',
         '.sale-price',
         '.regular-price',
-        'span.amount'
+        'span.amount',
+        // Additional Turkish/generic
+        '.fiyat',
+        '.urun-fiyat',
+        '.productPrice',
+        '.price-new',
+        '.price-current',
+        '[class*="price"]',
+        '[class*="fiyat"]'
       ],
       sku: [
         '[data-sku]',
         '[data-product-id]',
         '.sku',
         '.product-sku',
-        '[data-item-id]'
+        '[data-item-id]',
+        '[data-id]'
       ],
       image: [
         '.product-image img',
         '.product-img img',
         'img.product-image',
         '[data-product-image]',
-        '.item-image img'
+        '.item-image img',
+        // Additional
+        '.urun-resim img',
+        'img[class*="product"]',
+        '.image img',
+        '.thumb img',
+        '.lazy'
       ],
       link: [
         'a.product-link',
@@ -70,14 +104,21 @@ class BaseCrawler {
         'a[href*="/product"]',
         'a[href*="/p/"]',
         'h2 a',
-        'h3 a'
+        'h3 a',
+        // Additional
+        'a[href*="/urun"]',
+        'a[href*="detay"]',
+        '.card a',
+        'a[class*="product"]'
       ],
       pagination: [
         '.pagination a',
         '.pager a',
         'a.next',
         '[rel="next"]',
-        '.load-more'
+        '.load-more',
+        '.sayfalama a',
+        'a[class*="next"]'
       ]
     },
     // Shopify-specific selectors
