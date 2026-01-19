@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 
@@ -11,7 +12,7 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    origin: true,
     methods: ['GET', 'POST']
   }
 });
@@ -28,9 +29,10 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Serve static files from React build in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/build')));
+// Serve static files from React build if it exists
+const buildPath = path.join(__dirname, '../client/build');
+if (fs.existsSync(buildPath)) {
+  app.use(express.static(buildPath));
 }
 
 // Error handling middleware
@@ -83,10 +85,10 @@ async function startServer() {
       }
     });
 
-    // Catch-all for production SPA routing
-    if (process.env.NODE_ENV === 'production') {
+    // Catch-all for SPA routing (serve index.html for non-API routes)
+    if (fs.existsSync(buildPath)) {
       app.get('*', (req, res) => {
-        res.sendFile(path.join(__dirname, '../client/build/index.html'));
+        res.sendFile(path.join(buildPath, 'index.html'));
       });
     }
 
