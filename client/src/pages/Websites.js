@@ -6,7 +6,10 @@ function Websites() {
   const [websites, setWebsites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingWebsite, setEditingWebsite] = useState(null);
   const [formData, setFormData] = useState({ url: '', name: '', crawl_type: 'auto', is_source: false });
+  const [editFormData, setEditFormData] = useState({ name: '', crawl_type: 'auto' });
   const [error, setError] = useState('');
   const { crawlProgress, clearProgress } = useContext(SocketContext);
 
@@ -33,6 +36,30 @@ function Websites() {
       await websitesApi.create(formData);
       setShowModal(false);
       setFormData({ url: '', name: '', crawl_type: 'auto', is_source: false });
+      loadWebsites();
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+
+  const handleEdit = (website) => {
+    setEditingWebsite(website);
+    setEditFormData({
+      name: website.name || '',
+      crawl_type: website.crawl_type || 'auto'
+    });
+    setError('');
+    setShowEditModal(true);
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    try {
+      await websitesApi.update(editingWebsite.id, editFormData);
+      setShowEditModal(false);
+      setEditingWebsite(null);
       loadWebsites();
     } catch (error) {
       setError(error.message);
@@ -76,7 +103,6 @@ function Websites() {
       clearProgress(id);
       loadWebsites();
       if (result.message) {
-        // Show message if status was just reset
         console.log(result.message);
       }
     } catch (error) {
@@ -157,8 +183,6 @@ function Websites() {
               <tbody>
                 {websites.map(website => {
                   const crawlStatus = getCrawlStatus(website);
-                  // Only show as running if there's actual real-time progress
-                  // Don't rely on database status alone (it can be stale)
                   const isRunning = crawlStatus?.status === 'running';
                   const showAsStuck = !isRunning && website.status === 'crawling';
 
@@ -240,6 +264,13 @@ function Websites() {
                               Crawl
                             </button>
                           )}
+                          <button
+                            className="btn btn-sm btn-outline"
+                            onClick={() => handleEdit(website)}
+                            title="Edit website"
+                          >
+                            Edit
+                          </button>
                           {!website.is_source && (
                             <button
                               className="btn btn-sm btn-outline"
@@ -337,6 +368,77 @@ function Websites() {
                 </button>
                 <button type="submit" className="btn btn-primary">
                   Add Website
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Website Modal */}
+      {showEditModal && editingWebsite && (
+        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit Website</h3>
+              <button className="modal-close" onClick={() => setShowEditModal(false)}>&times;</button>
+            </div>
+            <form onSubmit={handleUpdate}>
+              <div className="modal-body">
+                {error && <div className="alert alert-danger">{error}</div>}
+
+                <div className="form-group">
+                  <label>Website URL</label>
+                  <input
+                    type="url"
+                    className="form-control"
+                    value={editingWebsite.url}
+                    disabled
+                    style={{ background: '#f5f5f5', cursor: 'not-allowed' }}
+                  />
+                  <small style={{ color: 'var(--text-light)', marginTop: '4px', display: 'block' }}>
+                    URL cannot be changed. Delete and re-add if needed.
+                  </small>
+                </div>
+
+                <div className="form-group">
+                  <label>Name</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={editFormData.name}
+                    onChange={e => setEditFormData({ ...editFormData, name: e.target.value })}
+                    placeholder="My Store"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Crawl Method</label>
+                  <select
+                    className="form-control"
+                    value={editFormData.crawl_type}
+                    onChange={e => setEditFormData({ ...editFormData, crawl_type: e.target.value })}
+                  >
+                    <option value="auto">Auto-detect</option>
+                    <option value="cheerio">Static HTML (Cheerio)</option>
+                    <option value="puppeteer">JavaScript Rendered (Puppeteer)</option>
+                  </select>
+                  <small style={{ color: 'var(--text-light)', marginTop: '4px', display: 'block' }}>
+                    Try "Puppeteer" if the website uses JavaScript to load products.
+                  </small>
+                </div>
+
+                <div className="alert alert-info" style={{ marginTop: '16px' }}>
+                  <strong>Current Status:</strong> {editingWebsite.status} |
+                  <strong> Products:</strong> {editingWebsite.product_count || 0}
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-outline" onClick={() => setShowEditModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Save Changes
                 </button>
               </div>
             </form>
