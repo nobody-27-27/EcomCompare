@@ -180,7 +180,7 @@ function Comparison() {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--primary)' }}>
-                      {item.source.price !== null ? `$${item.source.price.toFixed(2)}` : 'No price'}
+                      {item.source.price !== null ? `₺${item.source.price.toFixed(2)}` : 'No price'}
                     </div>
                     <span className="badge badge-info">Your Price</span>
                   </div>
@@ -203,8 +203,8 @@ function Comparison() {
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
                 <div style={{ fontSize: '0.875rem', color: 'var(--text-light)', marginBottom: '12px' }}>
                   {item.matches.length} competitor{item.matches.length !== 1 ? 's' : ''} |
-                  Lowest: ${item.lowest_competitor_price?.toFixed(2)} |
-                  Highest: ${item.highest_competitor_price?.toFixed(2)}
+                  Lowest: ₺${item.lowest_competitor_price?.toFixed(2)} |
+                  Highest: ₺${item.highest_competitor_price?.toFixed(2)}
                 </div>
                 <div className="table-container">
                   <table style={{ marginBottom: 0 }}>
@@ -242,7 +242,7 @@ function Comparison() {
                             {match.sku || '-'}
                           </td>
                           <td style={{ fontWeight: 500 }}>
-                            {match.price !== null ? `$${match.price.toFixed(2)}` : '-'}
+                            {match.price !== null ? `₺${match.price.toFixed(2)}` : '-'}
                           </td>
                           <td>{formatPriceDiff(match.price_difference)}</td>
                           <td>

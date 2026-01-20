@@ -109,6 +109,15 @@ export const productsApi = {
       method: 'DELETE'
     });
     return handleResponse(response);
+  },
+
+  bulkDelete: async (ids) => {
+    const response = await fetch(`${API_BASE}/products/bulk-delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids })
+    });
+    return handleResponse(response);
   }
 };
 

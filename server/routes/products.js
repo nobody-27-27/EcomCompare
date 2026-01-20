@@ -104,6 +104,31 @@ router.delete('/:id', (req, res) => {
   }
 });
 
+// Bulk delete products
+router.post('/bulk-delete', (req, res) => {
+  try {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids array is required' });
+    }
+
+    let deleted = 0;
+    for (const id of ids) {
+      try {
+        Product.delete(id);
+        deleted++;
+      } catch (e) {
+        // Skip if product not found
+      }
+    }
+
+    res.json({ message: `Deleted ${deleted} products`, deleted });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get product statistics
 router.get('/stats/overview', (req, res) => {
   try {

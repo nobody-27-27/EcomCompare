@@ -341,7 +341,7 @@ function Matching() {
                       <div style={{ fontWeight: 500 }}>{product.name}</div>
                     </td>
                     <td style={{ fontFamily: 'monospace' }}>{product.sku || '-'}</td>
-                    <td>{product.price !== null ? `$${product.price.toFixed(2)}` : '-'}</td>
+                    <td>{product.price !== null ? `₺${product.price.toFixed(2)}` : '-'}</td>
                     <td>
                       <button
                         className="btn btn-sm btn-primary"
@@ -372,7 +372,7 @@ function Matching() {
               <div className="alert alert-info" style={{ marginBottom: '16px' }}>
                 <strong>Source Product:</strong> {selectedSource.name}
                 {selectedSource.sku && <span> | SKU: {selectedSource.sku}</span>}
-                {selectedSource.price && <span> | Price: ${selectedSource.price.toFixed(2)}</span>}
+                {selectedSource.price && <span> | Price: ₺${selectedSource.price.toFixed(2)}</span>}
               </div>
 
               {/* Search and Filters */}
@@ -476,7 +476,7 @@ function Matching() {
                             {suggestion.sku || '-'}
                           </td>
                           <td>
-                            {suggestion.price !== null ? `$${suggestion.price.toFixed(2)}` : '-'}
+                            {suggestion.price !== null ? `₺${suggestion.price.toFixed(2)}` : '-'}
                           </td>
                           <td>
                             <div className="match-score">
@@ -546,7 +546,7 @@ function Matching() {
                             {product.sku || '-'}
                           </td>
                           <td>
-                            {product.price !== null ? `$${product.price.toFixed(2)}` : '-'}
+                            {product.price !== null ? `₺${product.price.toFixed(2)}` : '-'}
                           </td>
                           <td>
                             <button

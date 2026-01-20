@@ -76,7 +76,7 @@ function Dashboard() {
           <div className="label">Source Products</div>
           <div className="value">{stats?.source_products || 0}</div>
           <div className="sub-value">
-            Avg price: ${stats?.price_stats?.source?.avg || '0.00'}
+            Avg price: ₺${stats?.price_stats?.source?.avg || '0.00'}
           </div>
         </div>
 

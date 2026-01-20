@@ -157,7 +157,10 @@ function Websites() {
               <tbody>
                 {websites.map(website => {
                   const crawlStatus = getCrawlStatus(website);
-                  const isRunning = crawlStatus?.status === 'running' || website.status === 'crawling';
+                  // Only show as running if there's actual real-time progress
+                  // Don't rely on database status alone (it can be stale)
+                  const isRunning = crawlStatus?.status === 'running';
+                  const showAsStuck = !isRunning && website.status === 'crawling';
 
                   return (
                     <tr key={website.id}>
@@ -189,10 +192,18 @@ function Websites() {
                               </div>
                             )}
                           </div>
+                        ) : showAsStuck ? (
+                          <div>
+                            <span className="badge badge-warning" style={{ opacity: 0.7 }}>Stuck</span>
+                            <div style={{ fontSize: '0.75rem', marginTop: '4px', color: '#999' }}>
+                              Click Reset to fix
+                            </div>
+                          </div>
                         ) : (
                           <span className={`badge badge-${
                             website.status === 'completed' ? 'success' :
-                            website.status === 'failed' ? 'danger' : 'secondary'
+                            website.status === 'failed' ? 'danger' :
+                            website.status === 'cancelled' ? 'secondary' : 'secondary'
                           }`}>
                             {website.status}
                           </span>
@@ -205,7 +216,7 @@ function Websites() {
                       </td>
                       <td>
                         <div className="actions">
-                          {isRunning ? (
+                          {(isRunning || showAsStuck) ? (
                             <>
                               <button
                                 className="btn btn-sm btn-danger"

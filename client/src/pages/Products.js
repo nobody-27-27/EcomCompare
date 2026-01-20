@@ -7,6 +7,8 @@ function Products() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({ website_id: '', search: '' });
   const [activeTab, setActiveTab] = useState('all');
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -28,6 +30,7 @@ function Products() {
 
   const loadProducts = async () => {
     setLoading(true);
+    setSelectedIds(new Set()); // Clear selection when reloading
     try {
       let params = {};
       if (filter.website_id) {
@@ -60,6 +63,43 @@ function Products() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.size} products?`)) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      await productsApi.bulkDelete(Array.from(selectedIds));
+      setSelectedIds(new Set());
+      loadProducts();
+    } catch (error) {
+      alert('Error deleting products: ' + error.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const toggleSelect = (id) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredProducts.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredProducts.map(p => p.id)));
+    }
+  };
+
   const filteredProducts = products.filter(p => {
     if (!filter.search) return true;
     const search = filter.search.toLowerCase();
@@ -67,11 +107,23 @@ function Products() {
            (p.sku && p.sku.toLowerCase().includes(search));
   });
 
+  const allSelected = filteredProducts.length > 0 && selectedIds.size === filteredProducts.length;
+  const someSelected = selectedIds.size > 0 && selectedIds.size < filteredProducts.length;
+
   return (
     <div className="products-page">
       <div className="page-header">
         <h2>Products</h2>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {selectedIds.size > 0 && (
+            <button
+              className="btn btn-danger"
+              onClick={handleBulkDelete}
+              disabled={deleting}
+            >
+              {deleting ? 'Deleting...' : `Delete Selected (${selectedIds.size})`}
+            </button>
+          )}
           <span style={{ color: 'var(--text-light)' }}>
             {filteredProducts.length} products
           </span>
@@ -151,6 +203,17 @@ function Products() {
             <table>
               <thead>
                 <tr>
+                  <th style={{ width: '40px' }}>
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={el => {
+                        if (el) el.indeterminate = someSelected;
+                      }}
+                      onChange={toggleSelectAll}
+                      title="Select all"
+                    />
+                  </th>
                   <th style={{ width: '60px' }}>Image</th>
                   <th>Name</th>
                   <th>Website</th>
@@ -161,7 +224,14 @@ function Products() {
               </thead>
               <tbody>
                 {filteredProducts.map(product => (
-                  <tr key={product.id}>
+                  <tr key={product.id} className={selectedIds.has(product.id) ? 'selected-row' : ''}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(product.id)}
+                        onChange={() => toggleSelect(product.id)}
+                      />
+                    </td>
                     <td>
                       {product.image_url ? (
                         <img
@@ -218,7 +288,7 @@ function Products() {
                       {product.sku || '-'}
                     </td>
                     <td style={{ fontWeight: 600 }}>
-                      {product.price !== null ? `$${product.price.toFixed(2)}` : '-'}
+                      {product.price !== null ? `₺${product.price.toFixed(2)}` : '-'}
                     </td>
                     <td>
                       <div className="actions">
