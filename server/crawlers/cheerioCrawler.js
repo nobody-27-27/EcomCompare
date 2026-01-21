@@ -86,13 +86,19 @@ class CheerioCrawler extends BaseCrawler {
         const html = await this.fetchPage(url);
         const $ = cheerio.load(html);
 
+        // Debug: log HTML size and title
+        const pageTitle = $('title').text();
+        console.log(`[Cheerio] Fetched ${url}: ${html.length} bytes, title: "${pageTitle}"`);
+
         // Detect platform on first page
         if (pagesCrawled === 0) {
           this.platform = this.detectPlatform(html);
+          console.log(`[Cheerio] Detected platform: ${this.platform}`);
         }
 
         // Extract products from this page
         const pageProducts = this.extractProductsFromPage($, url);
+        console.log(`[Cheerio] Found ${pageProducts.length} products on ${url}`);
         for (const product of pageProducts) {
           if (product.product_url) {
             productUrls.add(product.product_url);
@@ -110,6 +116,7 @@ class CheerioCrawler extends BaseCrawler {
 
         // Find category/listing links
         const categoryLinks = this.findCategoryLinks($, url);
+        console.log(`[Cheerio] Found ${categoryLinks.length} category links on ${url}`);
         for (const link of categoryLinks) {
           if (!this.visitedUrls.has(link) && !urlsToVisit.includes(link)) {
             urlsToVisit.push(link);
