@@ -17,6 +17,16 @@ function Websites() {
     loadWebsites();
   }, []);
 
+  // Reload websites when any crawl completes or errors
+  useEffect(() => {
+    const hasCompletedOrError = Object.values(crawlProgress).some(
+      p => p.status === 'completed' || p.status === 'error'
+    );
+    if (hasCompletedOrError) {
+      loadWebsites();
+    }
+  }, [crawlProgress]);
+
   const loadWebsites = async () => {
     try {
       const data = await websitesApi.getAll();
@@ -184,7 +194,10 @@ function Websites() {
                 {websites.map(website => {
                   const crawlStatus = getCrawlStatus(website);
                   const isRunning = crawlStatus?.status === 'running';
-                  const showAsStuck = !isRunning && website.status === 'crawling';
+                  const isCompleted = crawlStatus?.status === 'completed';
+                  const isError = crawlStatus?.status === 'error';
+                  // Only show as stuck if database says crawling but socket says nothing or still running
+                  const showAsStuck = !isRunning && !isCompleted && !isError && website.status === 'crawling';
 
                   return (
                     <tr key={website.id}>
