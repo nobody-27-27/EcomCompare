@@ -6,6 +6,9 @@ class PuppeteerCrawler extends BaseCrawler {
     super(websiteUrl, options);
     this.browser = null;
     this.page = null;
+    this.cancelled = false;
+    this.failedPages = 0;
+    this.maxFailedPages = 5;
   }
 
   async init() {
@@ -18,7 +21,8 @@ class PuppeteerCrawler extends BaseCrawler {
         '--disable-accelerated-2d-canvas',
         '--disable-gpu',
         '--window-size=1920x1080'
-      ]
+      ],
+      timeout: 30000
     });
     this.page = await this.browser.newPage();
 
@@ -43,8 +47,13 @@ class PuppeteerCrawler extends BaseCrawler {
   }
 
   async close() {
+    this.cancelled = true;
     if (this.browser) {
-      await this.browser.close();
+      try {
+        await this.browser.close();
+      } catch (e) {
+        // Ignore close errors
+      }
       this.browser = null;
       this.page = null;
     }
@@ -65,7 +74,17 @@ class PuppeteerCrawler extends BaseCrawler {
       });
 
       // First pass: collect products from listing pages
-      while (urlsToVisit.length > 0 && pagesCrawled < this.options.maxPages) {
+      while (urlsToVisit.length > 0 && pagesCrawled < this.options.maxPages && !this.cancelled) {
+        // Check if too many pages have failed
+        if (this.failedPages >= this.maxFailedPages) {
+          this.onProgress({
+            status: 'error',
+            message: `Too many failed pages (${this.failedPages}). Stopping crawl.`,
+            pagesCrawled,
+            productsFound: this.products.length
+          });
+          break;
+        }
         const url = urlsToVisit.shift();
 
         if (this.visitedUrls.has(url)) continue;
@@ -112,6 +131,7 @@ class PuppeteerCrawler extends BaseCrawler {
           // Rate limiting
           await this.sleep(this.options.delay);
         } catch (error) {
+          this.failedPages++;
           console.error(`Error crawling ${url}:`, error.message);
           this.onProgress({
             status: 'error',
@@ -125,9 +145,10 @@ class PuppeteerCrawler extends BaseCrawler {
       // Deduplicate products
       this.products = this.deduplicateProducts(this.products);
 
+      const finalStatus = this.cancelled ? 'cancelled' : 'completed';
       this.onProgress({
-        status: 'completed',
-        message: `Crawl completed. Found ${this.products.length} products.`,
+        status: finalStatus,
+        message: `Crawl ${finalStatus}. Found ${this.products.length} products.`,
         pagesCrawled,
         productsFound: this.products.length
       });

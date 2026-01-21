@@ -8,15 +8,22 @@ class CheerioCrawler extends BaseCrawler {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Language': 'en-US,en;q=0.5,tr;q=0.3',
         'Connection': 'keep-alive'
       }
     };
+    this.cancelled = false;
+    this.failedPages = 0;
+    this.maxFailedPages = 5; // Stop if too many pages fail
+  }
+
+  close() {
+    this.cancelled = true;
   }
 
   async fetchPage(url) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.options.timeout);
+    const timeout = setTimeout(() => controller.abort(), this.options.timeout || 15000);
 
     try {
       const response = await fetch(url, {
@@ -49,7 +56,18 @@ class CheerioCrawler extends BaseCrawler {
     });
 
     // First pass: collect all product listing pages and product URLs
-    while (urlsToVisit.length > 0 && pagesCrawled < this.options.maxPages) {
+    while (urlsToVisit.length > 0 && pagesCrawled < this.options.maxPages && !this.cancelled) {
+      // Check if too many pages have failed
+      if (this.failedPages >= this.maxFailedPages) {
+        this.onProgress({
+          status: 'error',
+          message: `Too many failed pages (${this.failedPages}). Stopping crawl.`,
+          pagesCrawled,
+          productsFound: this.products.length
+        });
+        break;
+      }
+
       const url = urlsToVisit.shift();
 
       if (this.visitedUrls.has(url)) continue;
@@ -100,6 +118,7 @@ class CheerioCrawler extends BaseCrawler {
         // Rate limiting
         await this.sleep(this.options.delay);
       } catch (error) {
+        this.failedPages++;
         console.error(`Error crawling ${url}:`, error.message);
         this.onProgress({
           status: 'error',
@@ -113,9 +132,10 @@ class CheerioCrawler extends BaseCrawler {
     // Deduplicate products
     this.products = this.deduplicateProducts(this.products);
 
+    const finalStatus = this.cancelled ? 'cancelled' : 'completed';
     this.onProgress({
-      status: 'completed',
-      message: `Crawl completed. Found ${this.products.length} products.`,
+      status: finalStatus,
+      message: `Crawl ${finalStatus}. Found ${this.products.length} products.`,
       pagesCrawled,
       productsFound: this.products.length
     });

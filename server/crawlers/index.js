@@ -127,13 +127,26 @@ class CrawlerManager {
       url,
       type,
       crawler,
-      startTime: Date.now()
+      startTime: Date.now(),
+      cancelled: false
     };
 
     this.activeJobs.set(websiteId, jobInfo);
 
+    // Global timeout for entire crawl (5 minutes)
+    const maxCrawlTime = options.maxCrawlTime || 300000;
+
+    const crawlPromise = crawler.crawl();
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        jobInfo.cancelled = true;
+        if (crawler.close) crawler.close();
+        reject(new Error(`Crawl timed out after ${maxCrawlTime / 1000} seconds`));
+      }, maxCrawlTime);
+    });
+
     try {
-      const products = await crawler.crawl();
+      const products = await Promise.race([crawlPromise, timeoutPromise]);
       this.activeJobs.delete(websiteId);
       return { success: true, products, crawlerType: type };
     } catch (error) {
