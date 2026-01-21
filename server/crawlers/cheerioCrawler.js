@@ -23,20 +23,29 @@ class CheerioCrawler extends BaseCrawler {
 
   async fetchPage(url) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.options.timeout || 15000);
+    const timeoutMs = this.options.timeout || 15000;
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       const response = await fetch(url, {
         ...this.fetchOptions,
         signal: controller.signal
       });
-      clearTimeout(timeout);
 
       if (!response.ok) {
+        clearTimeout(timeout);
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      return await response.text();
+      // Add timeout for reading body as well
+      const textPromise = response.text();
+      const bodyTimeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Body read timeout')), timeoutMs);
+      });
+
+      const html = await Promise.race([textPromise, bodyTimeout]);
+      clearTimeout(timeout);
+      return html;
     } catch (error) {
       clearTimeout(timeout);
       throw error;

@@ -30,19 +30,27 @@ class CrawlerManager {
     }
 
     try {
-      // First try with a simple fetch
+      // First try with a simple fetch with strict timeout
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
+      const timeout = setTimeout(() => controller.abort(), 8000);
 
       const response = await fetch(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5,tr;q=0.3'
         },
         signal: controller.signal
       });
-      clearTimeout(timeout);
 
-      const html = await response.text();
+      // Add timeout for reading body
+      const textPromise = response.text();
+      const bodyTimeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Body read timeout')), 8000);
+      });
+
+      const html = await Promise.race([textPromise, bodyTimeout]);
+      clearTimeout(timeout);
 
       // Check for indicators of JavaScript-heavy sites
       const jsIndicators = [
@@ -135,10 +143,11 @@ class CrawlerManager {
 
     // Global timeout for entire crawl (5 minutes)
     const maxCrawlTime = options.maxCrawlTime || 300000;
+    let timeoutId = null;
 
     const crawlPromise = crawler.crawl();
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         jobInfo.cancelled = true;
         if (crawler.close) crawler.close();
         reject(new Error(`Crawl timed out after ${maxCrawlTime / 1000} seconds`));
@@ -147,9 +156,11 @@ class CrawlerManager {
 
     try {
       const products = await Promise.race([crawlPromise, timeoutPromise]);
+      clearTimeout(timeoutId); // Clear timeout on success
       this.activeJobs.delete(websiteId);
       return { success: true, products, crawlerType: type };
     } catch (error) {
+      clearTimeout(timeoutId); // Clear timeout on error too
       this.activeJobs.delete(websiteId);
       throw error;
     }
