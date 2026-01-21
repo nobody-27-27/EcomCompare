@@ -182,9 +182,23 @@ router.post('/:id/crawl', async (req, res) => {
       website_id: website.id
     });
 
+    // Emit initial progress
+    if (io) {
+      io.emit('crawl-progress', {
+        website_id: website.id,
+        job_id: job.id,
+        status: 'initializing',
+        message: 'Initializing crawler...',
+        pagesCrawled: 0,
+        productsFound: 0
+      });
+    }
+
     // Run crawl in background
     try {
+      console.log(`Starting crawl for ${website.url} (type: ${website.crawl_type})`);
       const result = await crawlerManager.startCrawl(website.id, website.url, options);
+      console.log(`Crawl completed for ${website.url}: ${result.products.length} products found`);
 
       // Save products
       if (result.products.length > 0) {

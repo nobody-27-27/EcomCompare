@@ -92,8 +92,8 @@ class PuppeteerCrawler extends BaseCrawler {
 
         try {
           await this.page.goto(url, {
-            waitUntil: 'networkidle2',
-            timeout: this.options.timeout
+            waitUntil: 'domcontentloaded',
+            timeout: 15000
           });
 
           // Wait for dynamic content

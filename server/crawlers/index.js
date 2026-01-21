@@ -26,13 +26,15 @@ class CrawlerManager {
   async detectCrawlerType(url) {
     // If Puppeteer is not available, always use Cheerio
     if (!puppeteerAvailable) {
+      console.log(`[Crawler] Puppeteer not available, using cheerio`);
       return 'cheerio';
     }
 
     try {
-      // First try with a simple fetch with strict timeout
+      console.log(`[Crawler] Auto-detecting crawler type for ${url}...`);
+      // First try with a simple fetch with strict timeout (5 seconds)
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
+      const timeout = setTimeout(() => controller.abort(), 5000);
 
       const response = await fetch(url, {
         headers: {
@@ -43,10 +45,10 @@ class CrawlerManager {
         signal: controller.signal
       });
 
-      // Add timeout for reading body
+      // Add timeout for reading body (5 seconds)
       const textPromise = response.text();
       const bodyTimeout = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Body read timeout')), 8000);
+        setTimeout(() => reject(new Error('Body read timeout')), 5000);
       });
 
       const html = await Promise.race([textPromise, bodyTimeout]);
@@ -72,12 +74,14 @@ class CrawlerManager {
       // If very little text content or JS framework detected, use Puppeteer
       for (const indicator of jsIndicators) {
         if (html.includes(indicator)) {
+          console.log(`[Crawler] Detected JS framework (${indicator}), using puppeteer`);
           return 'puppeteer';
         }
       }
 
       // If body has very little content, likely needs JS
       if (textContent.length < 500) {
+        console.log(`[Crawler] Minimal content (${textContent.length} chars), using puppeteer`);
         return 'puppeteer';
       }
 
@@ -92,13 +96,15 @@ class CrawlerManager {
 
       for (const platform of staticPlatforms) {
         if (html.includes(platform)) {
+          console.log(`[Crawler] Detected static platform, using cheerio`);
           return 'cheerio';
         }
       }
 
+      console.log(`[Crawler] No JS framework detected, using cheerio`);
       return 'cheerio';
     } catch (error) {
-      console.error('Error detecting crawler type:', error.message);
+      console.error(`[Crawler] Detection failed: ${error.message}, falling back to cheerio`);
       // Default to Cheerio if detection fails
       return 'cheerio';
     }
@@ -128,7 +134,9 @@ class CrawlerManager {
   }
 
   async startCrawl(websiteId, url, options = {}) {
+    console.log(`[Crawler] Creating crawler for ${url}, type: ${options.crawl_type || 'auto'}`);
     const { crawler, type } = await this.createCrawler(url, options);
+    console.log(`[Crawler] Using ${type} crawler for ${url}`);
 
     const jobInfo = {
       websiteId,
