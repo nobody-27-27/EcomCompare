@@ -367,6 +367,20 @@ class CheerioCrawler extends BaseCrawler {
       }
     }
 
+    // Fallback: try to get name from any link or heading in the element
+    if (!name) {
+      const fallbackSelectors = ['a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', '.title', '.name', 'strong'];
+      for (const sel of fallbackSelectors) {
+        const el = $el.find(sel).first();
+        if (el.length) {
+          name = el.text().trim();
+          // Only use if it looks like a product name (not too short, not too long)
+          if (name && name.length > 3 && name.length < 200) break;
+          name = null;
+        }
+      }
+    }
+
     if (!name) return null;
 
     // Extract price
@@ -541,6 +555,21 @@ class CheerioCrawler extends BaseCrawler {
       }
     });
 
+    // If this is the homepage and we found very few links, be more aggressive
+    // Collect ALL internal links from the page
+    if (links.length < 5) {
+      console.log(`[Cheerio] Few nav links found, collecting all internal links...`);
+      $('a').each((i, el) => {
+        const href = $(el).attr('href');
+        if (href && !href.startsWith('#') && !href.startsWith('javascript:') && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
+          const url = this.normalizeUrl(href);
+          if (url && this.isSameDomain(url)) {
+            links.push(url);
+          }
+        }
+      });
+    }
+
     // Filter out unwanted links
     const filtered = [...new Set(links)].filter(url => {
       const lower = url.toLowerCase();
@@ -553,11 +582,18 @@ class CheerioCrawler extends BaseCrawler {
              !lower.includes('/contact') &&
              !lower.includes('/about') &&
              !lower.includes('/privacy') &&
-             !lower.includes('/terms');
+             !lower.includes('/terms') &&
+             !lower.includes('/wishlist') &&
+             !lower.includes('/compare') &&
+             !lower.includes('/search') &&
+             !lower.includes('.pdf') &&
+             !lower.includes('.jpg') &&
+             !lower.includes('.png') &&
+             !lower.includes('.gif');
     });
 
     console.log(`[Cheerio] Found ${filtered.length} potential category links`);
-    return filtered.slice(0, 50); // Increased limit
+    return filtered.slice(0, 50);
   }
 
   deduplicateProducts(products) {
