@@ -231,17 +231,22 @@ class CheerioCrawler extends BaseCrawler {
     // First try JSON-LD structured data (most reliable)
     const jsonLdProducts = this.extractProductsFromJsonLd($);
     if (jsonLdProducts.length > 0) {
+      console.log(`[Cheerio] Found ${jsonLdProducts.length} products via JSON-LD`);
       return jsonLdProducts;
     }
 
     const products = [];
-    const selectors = BaseCrawler.PRODUCT_SELECTORS[this.platform || 'generic'];
+    const platform = this.platform || 'generic';
+    const selectors = BaseCrawler.PRODUCT_SELECTORS[platform];
+
+    console.log(`[Cheerio] Trying ${platform} selectors...`);
 
     // Try each container selector
     for (const containerSelector of selectors.productContainer) {
       const containers = $(containerSelector);
 
       if (containers.length > 0) {
+        console.log(`[Cheerio] Found ${containers.length} containers with "${containerSelector}"`);
         containers.each((i, el) => {
           const product = this.extractProductFromElement($, el, selectors);
           if (product && product.name) {
@@ -249,17 +254,22 @@ class CheerioCrawler extends BaseCrawler {
           }
         });
 
-        if (products.length > 0) break;
+        if (products.length > 0) {
+          console.log(`[Cheerio] Extracted ${products.length} products from "${containerSelector}"`);
+          break;
+        }
       }
     }
 
     // If no products found with platform selectors, try generic
-    if (products.length === 0 && this.platform !== 'generic') {
+    if (products.length === 0 && platform !== 'generic') {
+      console.log(`[Cheerio] Platform selectors failed, trying generic...`);
       const genericSelectors = BaseCrawler.PRODUCT_SELECTORS.generic;
       for (const containerSelector of genericSelectors.productContainer) {
         const containers = $(containerSelector);
 
         if (containers.length > 0) {
+          console.log(`[Cheerio] Found ${containers.length} containers with "${containerSelector}"`);
           containers.each((i, el) => {
             const product = this.extractProductFromElement($, el, genericSelectors);
             if (product && product.name) {
@@ -267,12 +277,81 @@ class CheerioCrawler extends BaseCrawler {
             }
           });
 
-          if (products.length > 0) break;
+          if (products.length > 0) {
+            console.log(`[Cheerio] Extracted ${products.length} products from "${containerSelector}"`);
+            break;
+          }
         }
       }
     }
 
+    // Last resort: try to find any links with prices nearby
+    if (products.length === 0) {
+      console.log(`[Cheerio] Trying last resort extraction...`);
+      const lastResortProducts = this.extractProductsLastResort($, pageUrl);
+      if (lastResortProducts.length > 0) {
+        console.log(`[Cheerio] Last resort found ${lastResortProducts.length} products`);
+        return lastResortProducts;
+      }
+    }
+
     return products;
+  }
+
+  // Last resort product extraction - find any elements with price-like text
+  extractProductsLastResort($, pageUrl) {
+    const products = [];
+    const priceRegex = /[\d.,]+\s*(TL|₺|USD|\$|EUR|€)/i;
+
+    // Look for common product listing structures
+    $('li, article, div').each((i, el) => {
+      const $el = $(el);
+      const text = $el.text();
+      const html = $.html(el);
+
+      // Skip if too large (probably a container) or too small
+      if (html.length > 5000 || html.length < 100) return;
+
+      // Check if contains a price
+      if (priceRegex.test(text)) {
+        // Try to find a link and name
+        const link = $el.find('a').first();
+        const href = link.attr('href');
+        const img = $el.find('img').first();
+
+        // Get name from link text, heading, or strong tag
+        let name = link.text().trim() ||
+                   $el.find('h1, h2, h3, h4, h5, strong, .title, .name').first().text().trim();
+
+        // Clean up name
+        name = name.replace(/\s+/g, ' ').substring(0, 200);
+
+        if (name && name.length > 3 && href) {
+          // Extract price
+          const priceMatch = text.match(/[\d.,]+\s*(TL|₺|USD|\$|EUR|€)/i);
+          let price = null;
+          if (priceMatch) {
+            price = this.parsePrice(priceMatch[0]);
+          }
+
+          products.push({
+            name,
+            price,
+            sku: null,
+            image_url: img.attr('src') || img.attr('data-src'),
+            product_url: this.normalizeUrl(href)
+          });
+        }
+      }
+    });
+
+    // Deduplicate by URL
+    const seen = new Set();
+    return products.filter(p => {
+      if (seen.has(p.product_url)) return false;
+      seen.add(p.product_url);
+      return true;
+    }).slice(0, 100);
   }
 
   extractProductFromElement($, element, selectors) {
@@ -393,6 +472,8 @@ class CheerioCrawler extends BaseCrawler {
 
   findCategoryLinks($, currentUrl) {
     const links = [];
+
+    // URL patterns that indicate category/listing pages
     const categoryPatterns = [
       /\/category\//i,
       /\/collections?\//i,
@@ -410,12 +491,44 @@ class CheerioCrawler extends BaseCrawler {
       /\/k\//i,
       /\/g\//i,
       /\?.*kategori/i,
-      /\?.*category/i
+      /\?.*category/i,
+      // Magento patterns
+      /\.html$/i,
+      /\/[a-z-]+\/[a-z-]+\.html/i
     ];
 
+    // First, try to find links from navigation menus
+    const navSelectors = [
+      'nav a',
+      '.nav a',
+      '.menu a',
+      '.navigation a',
+      '.main-menu a',
+      '.navbar a',
+      '.header a',
+      '.top-menu a',
+      '.mega-menu a',
+      '.category-menu a',
+      '[class*="nav"] a',
+      '[class*="menu"] a'
+    ];
+
+    for (const selector of navSelectors) {
+      $(selector).each((i, el) => {
+        const href = $(el).attr('href');
+        if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+          const url = this.normalizeUrl(href);
+          if (url && this.isSameDomain(url) && !url.includes('/customer/') && !url.includes('/checkout/')) {
+            links.push(url);
+          }
+        }
+      });
+    }
+
+    // Then look for links matching category patterns
     $('a').each((i, el) => {
       const href = $(el).attr('href');
-      if (href) {
+      if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
         const url = this.normalizeUrl(href);
         if (url && this.isSameDomain(url)) {
           for (const pattern of categoryPatterns) {
@@ -428,7 +541,23 @@ class CheerioCrawler extends BaseCrawler {
       }
     });
 
-    return [...new Set(links)].slice(0, 30); // Limit category links
+    // Filter out unwanted links
+    const filtered = [...new Set(links)].filter(url => {
+      const lower = url.toLowerCase();
+      return !lower.includes('/cart') &&
+             !lower.includes('/checkout') &&
+             !lower.includes('/customer') &&
+             !lower.includes('/account') &&
+             !lower.includes('/login') &&
+             !lower.includes('/register') &&
+             !lower.includes('/contact') &&
+             !lower.includes('/about') &&
+             !lower.includes('/privacy') &&
+             !lower.includes('/terms');
+    });
+
+    console.log(`[Cheerio] Found ${filtered.length} potential category links`);
+    return filtered.slice(0, 50); // Increased limit
   }
 
   deduplicateProducts(products) {

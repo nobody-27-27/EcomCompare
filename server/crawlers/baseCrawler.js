@@ -139,14 +139,52 @@ class BaseCrawler {
       image: ['.woocommerce-LoopProduct-link img'],
       link: ['.woocommerce-LoopProduct-link']
     },
-    // Magento-specific selectors
+    // Magento-specific selectors (Magento 1 & 2)
     magento: {
-      productContainer: ['.product-item', '.item.product'],
-      name: ['.product-item-name', '.product-name'],
-      price: ['.price-box .price', '[data-price-amount]'],
-      sku: ['[data-product-id]'],
-      image: ['.product-image-photo'],
-      link: ['.product-item-link']
+      productContainer: [
+        '.product-item',
+        '.item.product',
+        '.product-item-info',
+        '.products-grid .item',
+        '.products-list .item',
+        '.category-products .item',
+        'li.product-item',
+        '.product-items .product-item',
+        'ol.products li',
+        '.products.wrapper .product-item'
+      ],
+      name: [
+        '.product-item-name',
+        '.product-name',
+        '.product-item-link',
+        '.product-item-name a',
+        'h2.product-name a',
+        'h3.product-name a',
+        '.product-item-details .product-item-name'
+      ],
+      price: [
+        '.price-box .price',
+        '[data-price-amount]',
+        '.price-final_price .price',
+        '.special-price .price',
+        '.regular-price .price',
+        '.price-wrapper .price',
+        '.price-including-tax .price',
+        '.price'
+      ],
+      sku: ['[data-product-id]', '[data-sku]'],
+      image: [
+        '.product-image-photo',
+        '.product-image-container img',
+        '.product-image-wrapper img',
+        '.product-item-photo img'
+      ],
+      link: [
+        '.product-item-link',
+        '.product-item-photo',
+        '.product-item-name a',
+        'a.product-image'
+      ]
     }
   };
 
