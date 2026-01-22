@@ -12,6 +12,7 @@ class PuppeteerCrawler extends BaseCrawler {
   }
 
   async init() {
+    console.log('[Puppeteer] Launching browser...');
     this.browser = await puppeteer.launch({
       headless: 'new',
       args: [
@@ -24,6 +25,7 @@ class PuppeteerCrawler extends BaseCrawler {
       ],
       timeout: 30000
     });
+    console.log('[Puppeteer] Browser launched, creating page...');
     this.page = await this.browser.newPage();
 
     // Set viewport
@@ -44,6 +46,7 @@ class PuppeteerCrawler extends BaseCrawler {
         request.continue();
       }
     });
+    console.log('[Puppeteer] Browser ready');
   }
 
   async close() {
@@ -91,10 +94,12 @@ class PuppeteerCrawler extends BaseCrawler {
         this.visitedUrls.add(url);
 
         try {
+          console.log(`[Puppeteer] Navigating to ${url}...`);
           await this.page.goto(url, {
             waitUntil: 'domcontentloaded',
             timeout: 15000
           });
+          console.log(`[Puppeteer] Page loaded: ${url}`);
 
           // Wait for dynamic content
           await this.sleep(1000);
