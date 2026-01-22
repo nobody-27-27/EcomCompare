@@ -78,6 +78,28 @@ export const websitesApi = {
       method: 'POST'
     });
     return handleResponse(response);
+  },
+
+  // Cookies API (for CAPTCHA bypass)
+  importCookies: async (id, cookies) => {
+    const response = await fetch(`${API_BASE}/websites/${id}/cookies`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cookies })
+    });
+    return handleResponse(response);
+  },
+
+  getCookies: async (id) => {
+    const response = await fetch(`${API_BASE}/websites/${id}/cookies`);
+    return handleResponse(response);
+  },
+
+  clearCookies: async (id) => {
+    const response = await fetch(`${API_BASE}/websites/${id}/cookies`, {
+      method: 'DELETE'
+    });
+    return handleResponse(response);
   }
 };
 

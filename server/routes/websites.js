@@ -152,11 +152,15 @@ router.post('/:id/crawl', async (req, res) => {
     // Get Socket.IO instance from app
     const io = req.app.get('io');
 
+    // Get cookies if available (for CAPTCHA bypass)
+    const cookies = Website.getCookies(website.id);
+
     // Start crawl asynchronously
     const options = {
       maxPages: req.body.maxPages || 50,
       delay: req.body.delay || 1000,
       crawl_type: website.crawl_type,
+      cookies: cookies, // Pass cookies to crawler
       onProgress: (progress) => {
         // Update job progress
         CrawlJob.update(job.id, {
@@ -306,6 +310,67 @@ router.get('/:id/jobs', (req, res) => {
   try {
     const jobs = CrawlJob.findByWebsite(req.params.id);
     res.json(jobs);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Import cookies for website (for CAPTCHA bypass)
+router.post('/:id/cookies', (req, res) => {
+  try {
+    const website = Website.findById(req.params.id);
+    if (!website) {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+
+    const { cookies } = req.body;
+    if (!cookies) {
+      return res.status(400).json({ error: 'Cookies are required' });
+    }
+
+    // Validate cookies format
+    let parsedCookies;
+    try {
+      parsedCookies = typeof cookies === 'string' ? JSON.parse(cookies) : cookies;
+      if (!Array.isArray(parsedCookies)) {
+        return res.status(400).json({ error: 'Cookies must be an array' });
+      }
+    } catch (e) {
+      return res.status(400).json({ error: 'Invalid JSON format for cookies' });
+    }
+
+    Website.setCookies(website.id, parsedCookies);
+    res.json({ message: 'Cookies imported successfully', count: parsedCookies.length });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get cookies for website
+router.get('/:id/cookies', (req, res) => {
+  try {
+    const website = Website.findById(req.params.id);
+    if (!website) {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+
+    const cookies = Website.getCookies(website.id);
+    res.json({ cookies: cookies || [], hasCookies: !!cookies && cookies.length > 0 });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Clear cookies for website
+router.delete('/:id/cookies', (req, res) => {
+  try {
+    const website = Website.findById(req.params.id);
+    if (!website) {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+
+    Website.clearCookies(website.id);
+    res.json({ message: 'Cookies cleared successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

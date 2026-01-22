@@ -51,6 +51,27 @@ const Website = {
   setSource: (id) => {
     run('UPDATE websites SET is_source = 0', []);
     return run('UPDATE websites SET is_source = 1 WHERE id = ?', [id]);
+  },
+
+  setCookies: (id, cookies) => {
+    const cookiesJson = typeof cookies === 'string' ? cookies : JSON.stringify(cookies);
+    return run('UPDATE websites SET cookies = ? WHERE id = ?', [cookiesJson, id]);
+  },
+
+  getCookies: (id) => {
+    const website = get('SELECT cookies FROM websites WHERE id = ?', [id]);
+    if (website && website.cookies) {
+      try {
+        return JSON.parse(website.cookies);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  },
+
+  clearCookies: (id) => {
+    return run('UPDATE websites SET cookies = NULL WHERE id = ?', [id]);
   }
 };
 

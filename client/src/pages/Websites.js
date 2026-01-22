@@ -7,9 +7,13 @@ function Websites() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showCookiesModal, setShowCookiesModal] = useState(false);
   const [editingWebsite, setEditingWebsite] = useState(null);
+  const [cookiesWebsite, setCookiesWebsite] = useState(null);
   const [formData, setFormData] = useState({ url: '', name: '', crawl_type: 'auto', is_source: false });
   const [editFormData, setEditFormData] = useState({ name: '', crawl_type: 'auto' });
+  const [cookiesData, setCookiesData] = useState('');
+  const [hasCookies, setHasCookies] = useState(false);
   const [error, setError] = useState('');
   const { crawlProgress, clearProgress } = useContext(SocketContext);
 
@@ -127,6 +131,57 @@ function Websites() {
       loadWebsites();
     } catch (error) {
       alert('Error resetting status: ' + error.message);
+    }
+  };
+
+  // Cookies handlers
+  const handleOpenCookies = async (website) => {
+    setCookiesWebsite(website);
+    setCookiesData('');
+    setError('');
+    try {
+      const result = await websitesApi.getCookies(website.id);
+      setHasCookies(result.hasCookies);
+      if (result.hasCookies) {
+        setCookiesData(JSON.stringify(result.cookies, null, 2));
+      }
+    } catch (error) {
+      console.error('Error loading cookies:', error);
+    }
+    setShowCookiesModal(true);
+  };
+
+  const handleImportCookies = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    try {
+      const cookies = JSON.parse(cookiesData);
+      await websitesApi.importCookies(cookiesWebsite.id, cookies);
+      setShowCookiesModal(false);
+      setCookiesWebsite(null);
+      alert('Cookies imported successfully! The crawler will now use these cookies.');
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        setError('Invalid JSON format. Please paste valid JSON cookies.');
+      } else {
+        setError(error.message);
+      }
+    }
+  };
+
+  const handleClearCookies = async () => {
+    if (!window.confirm('Are you sure you want to clear cookies for this website?')) {
+      return;
+    }
+
+    try {
+      await websitesApi.clearCookies(cookiesWebsite.id);
+      setCookiesData('');
+      setHasCookies(false);
+      alert('Cookies cleared successfully.');
+    } catch (error) {
+      alert('Error clearing cookies: ' + error.message);
     }
   };
 
@@ -283,6 +338,14 @@ function Websites() {
                             title="Edit website"
                           >
                             Edit
+                          </button>
+                          <button
+                            className="btn btn-sm btn-outline"
+                            onClick={() => handleOpenCookies(website)}
+                            title="Import cookies for CAPTCHA bypass"
+                            style={{ fontSize: '0.75rem' }}
+                          >
+                            Cookies
                           </button>
                           {!website.is_source && (
                             <button
@@ -452,6 +515,72 @@ function Websites() {
                 </button>
                 <button type="submit" className="btn btn-primary">
                   Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Import Cookies Modal */}
+      {showCookiesModal && cookiesWebsite && (
+        <div className="modal-overlay" onClick={() => setShowCookiesModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <div className="modal-header">
+              <h3>Import Cookies - {cookiesWebsite.name}</h3>
+              <button className="modal-close" onClick={() => setShowCookiesModal(false)}>&times;</button>
+            </div>
+            <form onSubmit={handleImportCookies}>
+              <div className="modal-body">
+                {error && <div className="alert alert-danger">{error}</div>}
+
+                <div className="alert alert-info">
+                  <strong>How to use:</strong>
+                  <ol style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
+                    <li>Install a browser extension like "Cookie-Editor" or "EditThisCookie"</li>
+                    <li>Visit <a href={cookiesWebsite.url} target="_blank" rel="noopener noreferrer">{cookiesWebsite.url}</a> and solve the CAPTCHA</li>
+                    <li>Use the extension to export cookies as JSON</li>
+                    <li>Paste the JSON below and click Import</li>
+                  </ol>
+                </div>
+
+                <div className="form-group">
+                  <label>Cookies JSON</label>
+                  <textarea
+                    className="form-control"
+                    value={cookiesData}
+                    onChange={e => setCookiesData(e.target.value)}
+                    placeholder='[{"name": "session", "value": "abc123", "domain": ".example.com", ...}]'
+                    rows={10}
+                    style={{ fontFamily: 'monospace', fontSize: '12px' }}
+                  />
+                  <small style={{ color: 'var(--text-light)', marginTop: '4px', display: 'block' }}>
+                    Paste the JSON array of cookies exported from your browser extension.
+                  </small>
+                </div>
+
+                {hasCookies && (
+                  <div className="alert alert-success" style={{ marginTop: '16px' }}>
+                    This website has cookies saved. They will be used during crawling.
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                {hasCookies && (
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={handleClearCookies}
+                    style={{ marginRight: 'auto' }}
+                  >
+                    Clear Cookies
+                  </button>
+                )}
+                <button type="button" className="btn btn-outline" onClick={() => setShowCookiesModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={!cookiesData.trim()}>
+                  Import Cookies
                 </button>
               </div>
             </form>

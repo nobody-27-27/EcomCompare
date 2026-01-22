@@ -45,9 +45,57 @@ class PuppeteerCrawler extends BaseCrawler {
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8'
     });
 
-    // Don't block resources - some sites check for this
-    // Allow all resources to load for better bot detection evasion
+    // Load cookies if provided (for CAPTCHA bypass)
+    if (this.options.cookies && Array.isArray(this.options.cookies)) {
+      console.log(`[Puppeteer] Loading ${this.options.cookies.length} cookies...`);
+      await this.loadCookies(this.options.cookies);
+    }
+
     console.log('[Puppeteer] Browser ready (stealth mode)');
+  }
+
+  // Load cookies into the browser
+  async loadCookies(cookies) {
+    try {
+      // Convert cookies to Puppeteer format if needed
+      const puppeteerCookies = cookies.map(cookie => {
+        // Handle different cookie formats (from various browser extensions)
+        const puppeteerCookie = {
+          name: cookie.name,
+          value: cookie.value,
+          domain: cookie.domain || this.parsedUrl.hostname,
+          path: cookie.path || '/',
+          httpOnly: cookie.httpOnly || false,
+          secure: cookie.secure || false
+        };
+
+        // Handle expiration
+        if (cookie.expirationDate) {
+          puppeteerCookie.expires = cookie.expirationDate;
+        } else if (cookie.expires) {
+          puppeteerCookie.expires = cookie.expires;
+        }
+
+        // Handle sameSite
+        if (cookie.sameSite) {
+          // Puppeteer expects capitalized values
+          const sameSiteMap = {
+            'lax': 'Lax',
+            'strict': 'Strict',
+            'none': 'None',
+            'no_restriction': 'None'
+          };
+          puppeteerCookie.sameSite = sameSiteMap[cookie.sameSite.toLowerCase()] || 'Lax';
+        }
+
+        return puppeteerCookie;
+      });
+
+      await this.page.setCookie(...puppeteerCookies);
+      console.log(`[Puppeteer] Successfully loaded ${puppeteerCookies.length} cookies`);
+    } catch (error) {
+      console.error('[Puppeteer] Error loading cookies:', error.message);
+    }
   }
 
   async close() {

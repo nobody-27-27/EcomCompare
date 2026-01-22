@@ -103,6 +103,18 @@ async function initDatabase() {
   db.run('PRAGMA foreign_keys = ON');
   db.run(schema);
 
+  // Migration: Add cookies column to websites table if it doesn't exist
+  try {
+    const tableInfo = db.exec("PRAGMA table_info(websites)");
+    const columns = tableInfo[0]?.values.map(row => row[1]) || [];
+    if (!columns.includes('cookies')) {
+      db.run('ALTER TABLE websites ADD COLUMN cookies TEXT');
+      console.log('Added cookies column to websites table');
+    }
+  } catch (error) {
+    console.error('Migration error:', error.message);
+  }
+
   // Save to disk
   saveDatabase();
 
