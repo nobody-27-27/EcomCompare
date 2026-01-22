@@ -1,5 +1,9 @@
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const BaseCrawler = require('./baseCrawler');
+
+// Add stealth plugin to avoid bot detection and CAPTCHA
+puppeteer.use(StealthPlugin());
 
 class PuppeteerCrawler extends BaseCrawler {
   constructor(websiteUrl, options = {}) {
@@ -12,7 +16,7 @@ class PuppeteerCrawler extends BaseCrawler {
   }
 
   async init() {
-    console.log('[Puppeteer] Launching browser...');
+    console.log('[Puppeteer] Launching browser with stealth mode...');
     this.browser = await puppeteer.launch({
       headless: 'new',
       args: [
@@ -21,32 +25,29 @@ class PuppeteerCrawler extends BaseCrawler {
         '--disable-dev-shm-usage',
         '--disable-accelerated-2d-canvas',
         '--disable-gpu',
-        '--window-size=1920x1080'
+        '--window-size=1920,1080',
+        '--disable-blink-features=AutomationControlled',
+        '--disable-infobars',
+        '--lang=tr-TR,tr,en-US,en'
       ],
-      timeout: 30000
+      timeout: 60000
     });
     console.log('[Puppeteer] Browser launched, creating page...');
     this.page = await this.browser.newPage();
 
-    // Set viewport
-    await this.page.setViewport({ width: 1920, height: 1080 });
+    // Set viewport with realistic dimensions
+    await this.page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
 
-    // Set user agent
-    await this.page.setUserAgent(
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    );
-
-    // Block unnecessary resources for faster loading
-    await this.page.setRequestInterception(true);
-    this.page.on('request', (request) => {
-      const resourceType = request.resourceType();
-      if (['font', 'media'].includes(resourceType)) {
-        request.abort();
-      } else {
-        request.continue();
-      }
+    // Set extra HTTP headers to look more like a real browser
+    await this.page.setExtraHTTPHeaders({
+      'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8'
     });
-    console.log('[Puppeteer] Browser ready');
+
+    // Don't block resources - some sites check for this
+    // Allow all resources to load for better bot detection evasion
+    console.log('[Puppeteer] Browser ready (stealth mode)');
   }
 
   async close() {
@@ -96,13 +97,21 @@ class PuppeteerCrawler extends BaseCrawler {
         try {
           console.log(`[Puppeteer] Navigating to ${url}...`);
           await this.page.goto(url, {
-            waitUntil: 'domcontentloaded',
-            timeout: 15000
+            waitUntil: 'networkidle2',
+            timeout: 30000
           });
           console.log(`[Puppeteer] Page loaded: ${url}`);
 
-          // Wait for dynamic content
-          await this.sleep(1000);
+          // Wait for dynamic content and potential CAPTCHA checks to complete
+          await this.sleep(2000);
+
+          // Check if we hit a CAPTCHA or block page
+          const pageContent = await this.page.content();
+          if (pageContent.includes('captcha') || pageContent.includes('robot') ||
+              pageContent.includes('güvenlik') || pageContent.includes('doğrulama')) {
+            console.log(`[Puppeteer] Possible CAPTCHA detected, waiting longer...`);
+            await this.sleep(5000);
+          }
 
           // Scroll to load lazy content
           await this.autoScroll();

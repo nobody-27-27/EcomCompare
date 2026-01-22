@@ -17,6 +17,8 @@
     "express": "^4.18.2",
     "fastest-levenshtein": "^1.0.16",
     "json2csv": "^6.0.0-alpha.2",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "socket.io": "^4.7.4",
     "sql.js": "^1.10.3",
     "uuid": "^9.0.1"
