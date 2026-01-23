@@ -4,6 +4,16 @@ const BaseCrawler = require('./baseCrawler');
 class CheerioCrawler extends BaseCrawler {
   constructor(websiteUrl, options = {}) {
     super(websiteUrl, options);
+
+    // Build cookie header if cookies are provided
+    let cookieHeader = '';
+    if (options.cookies && Array.isArray(options.cookies)) {
+      cookieHeader = options.cookies
+        .map(c => `${c.name}=${c.value}`)
+        .join('; ');
+      console.log(`[Cheerio] Using ${options.cookies.length} cookies`);
+    }
+
     this.fetchOptions = {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -19,7 +29,8 @@ class CheerioCrawler extends BaseCrawler {
         'Sec-Fetch-User': '?1',
         'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
         'Sec-Ch-Ua-Mobile': '?0',
-        'Sec-Ch-Ua-Platform': '"Windows"'
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        ...(cookieHeader && { 'Cookie': cookieHeader })
       }
     };
     this.cancelled = false;
